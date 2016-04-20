@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,300,600|Open+Sans+Condensed:300' rel='stylesheet' type='text/css'>
+    <title>Hierarchical Bars</title>
+
+    <meta name="description" content="">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+
+    <link rel="stylesheet" href="../lib/style-chosen.css">
+    <link rel="stylesheet" href="../lib/globalStyle.css" />
+    <link rel="stylesheet" href="../lib/bootstrap.min.css">
+    <link rel="stylesheet" href="../lib/jquery-ui-1.10.4.custom.min.css">    
+    <link rel="stylesheet" href="../lib/style-chosen.css">
+	
+    <style type="text/css">
+	
+			.tick{
+				pointer-events: none;
+			}
+			#header{ height:50px; }
+			#header2{ height:50px; }
+			
+			rect.background {
+			  fill: white;
+			}
+			text {
+			  font: 10px sans-serif;
+			}
+			
+			
+			rect{
+				opacity:0.75
+			}
+			
+			
+			.active{
+				background-color:#025aa5;
+				border-color:white;
+				color:#fff;
+				font-weight:bold;
+				font-family:helvetica;		
+			}
+			
+			
+			.default{
+				background-color:#0275d8;
+				border-color:white;
+				color:#fff;
+				font-weight:bold;
+				font-family:helvetica;		
+			}
+			
+			.rightgroup{
+				position:absolute;
+				right:0px;
+			}
+			
+			
+			#infoBox{
+				position:absolute;
+				right:0px;
+				top:0px;
+				width:300px;
+				height:auto;
+				background-color:white;
+				border-style:solid;
+				border-width:1px;
+				border-color:#CCC;
+				border-radius:10px;	
+				display:none;		
+			}
+			
+			.infoText{
+				font-size:11px;
+				color:#666;
+				margin:5px;
+			}
+
+    
+    </style>
+</head>
+<body>
+
+	
+	<div class="container-fluid">
+			
+	
+		<div class="col-md-12" id="header">
+			</br>		
+	
+			<div class="btn-group leftgroup" role="group" aria-label="Basic example">
+				<button type="button" id="category" class="btn btn-primary-outline default" onClick="clickBtn(this)">Category</button>
+				<button type="button" id="value" class="btn btn-primary-outline active" onClick="clickBtn(this)">Value</button>
+			</div>
+			
+			<div class="btn-group rightgroup" role="group" aria-label="Basic example">
+				<button type="button" id="clear" class="btn btn-primary-outline default" style="background-color:red; border-color:white" onClick="clickBtn(this)">Clear</button>			
+				<button type="button" id="help" class="btn btn-primary-outline default" style="background-color:#4e5811; border-color:white" onClick="clickBtn(this)">Help</button>			
+			</div>			
+
+		</div>
+			   
+		   
+		<div class="row">
+					
+			<div class="col-sm-12" id="header2">
+							
+			</div> 
+			
+		</div>
+		
+	
+		<div class="col-md-12" >	
+			
+			<div class="row">
+			
+					<div class="col-md-12" id="graphic1"></div>
+			
+			</div>
+		
+		</div>	
+		
+	</div>   
+   
+    <script src="../lib/jquery.js" type="text/javascript"></script>
+    <script src="../lib/d3.v3.5.min.js" type="text/javascript"></script>
+    <script src="../lib/modernizr.svg.min.js" type="text/javascript"></script>
+    <script src="../lib/pym.js" type="text/javascript"></script>
+    <script src="../lib/chosen.jquery.js" type="text/javascript"></script>
+	
+	<script src="../lib/bootstrap.min.js"></script>
+	<script src="../lib/jquery-ui-1.10.4.custom.min.js"></script>    
+	<script src="../lib/jquery.ui.labeledslider.js"></script>
+	<script src="../lib/chosen.jquery.js" type="text/javascript"></script>
+	<script src="../lib/queue.js" type="text/javascript"></script>
+    	
+    <script>
+	
+		var move = "onload";
+		var maxDepth = -1;
+		this_D = -1;
+		this_I = -1;
+		var graphic1 = $('#graphic1');
+		var header = $("#header");
+		var header2 = $("#header2");
+		var pymChild = null;
+		var height;
+		var margin;
+		var svg1;
+		var barHeight = 30;
+		var y2Axis;
+		var selectedBar = '';
+		var minHeight = 500;
+		var duration;
+		var delay;
+		var x;
+		var partition;
+		var x_axis_grid;
+		
+				
+		// standard window.resize function to mimic reacting to window resizing ...
+		$(window).resize(function(){
+		
+			move = "resize";
+
+			d3.select("#nameInfo").attr('x', header.width()/2-15)
+			d3.select("#valueInfo").attr('x', header.width()/2+15)			
+					
+			// call pym function to act on resize		
+			pymChild = new pym.Child({ renderCallback: drawGraphic});			
+		});		
+		
+
+		
+				
+
+		function drawGraphic(width) {
+				
+		   var threshold_md = 788;
+		   var threshold_sm = FDS.vars.mobileBreakpoint;
+
+		  	//set variables for chart dimensions dependent on width of #graphic1
+		    if (graphic1.width() < threshold_sm) {        	
+		            margin = {top: FDS.vars.margin_sm[0], right: FDS.vars.margin_sm[1], bottom: FDS.vars.margin_sm[2], left: FDS.vars.margin_sm[3]}; 
+					var chart_width = graphic1.width() - margin.left - margin.right;
+		            height = Math.ceil((chart_width * FDS.vars.aspectRatio_sm[1]) / FDS.vars.aspectRatio_sm[0]) - margin.top - margin.bottom;
+		    } else if (graphic1.width() < threshold_md){
+		        	margin = {top: FDS.vars.margin_md[0], right: FDS.vars.margin_md[1], bottom: FDS.vars.margin_md[2], left: FDS.vars.margin_md[3]}; 
+					var chart_width = graphic1.width() - margin.left - margin.right;
+		            height = Math.ceil((chart_width * FDS.vars.aspectRatio_md[1]) / FDS.vars.aspectRatio_md[0]) - margin.top - margin.bottom;
+		  	} else {
+		        	margin = {top: FDS.vars.margin_lg[0], right: FDS.vars.margin_lg[1], bottom: FDS.vars.margin_lg[2], left: FDS.vars.margin_lg[3]}
+					var chart_width = graphic1.width() - margin.left - margin.right;
+		            height = Math.ceil((chart_width * FDS.vars.aspectRatio_lg[1]) / FDS.vars.aspectRatio_lg[0]) - margin.top - margin.bottom;
+			}
+
+		    // clear out existing graphics
+		    graphic1.empty();
+			//header.empty();
+			
+			barHeight = 30;
+			duration = 750;
+			delay = 25;
+
+			x = d3.scale.linear().range([0, chart_width]);
+			var xAxis = d3.svg.axis().scale(x).orient('top');
+			
+			var color = d3.scale.ordinal().range(["steelblue", "#ccc"]);
+			partition = d3.layout.partition().value(function(d) { return d.size; });
+					
+			d3.select("#graphic1")
+				.append('div')
+					.attr("id","infoBox")
+					.style("display", "none")
+				.append('img')
+					.attr('src', "../images/close.png")
+					.attr('float', "right")
+					.attr('position', "absolute")
+					.attr('left', "20px")
+					.attr('top', "20px")
+					.attr('width', "20px")
+					.attr('height', "20px")
+					.style('padding', "5px")
+					.on('click', infoHide);
+					
+			var para1 = "Click on an individual data bar to move down on level in the hierachy";
+			var para2 = "Click away fom the data bars within the graph area to return up on level";
+			var para3 = "Click on an individual data label to fix highlighting on it and the associated data bar to track its position";
+			var para4 = "Hover over a data bar to ascertain its 'child' component values";
+			var para5 = "Click on 'Category' ['Value] to sort data bars according to their data label [data value]";
+			var para6 = "Click on 'Clear' to clear the current view of all highlighting";
+		
+			d3.select('#infoBox').append('li').attr('class', 'infoText').attr('id', 'infoText1').text(para1);
+			d3.select('#infoBox').append('li').attr('class', 'infoText').attr('id', 'infoText2').text(para2);
+			d3.select('#infoBox').append('li').attr('class', 'infoText').attr('id', 'infoText3').text(para3);
+			d3.select('#infoBox').append('li').attr('class', 'infoText').attr('id', 'infoText4').text(para4);
+			d3.select('#infoBox').append('li').attr('class', 'infoText').attr('id', 'infoText5').text(para5);
+			d3.select('#infoBox').append('li').attr('class', 'infoText').attr('id', 'infoText6').text(para6);
+														
+			svg1 = d3.select("#graphic1").append("svg")
+				.attr("class","mySVG")
+				.attr("id","svg1")
+				.attr("width", chart_width + margin.left + margin.right)
+				.attr("height", height + margin.top + margin.bottom)
+			  .append("g")
+			  .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+		  
+
+			svg1.append("rect")
+				.attr("class", "background")
+				.attr("id", "background")
+				.attr("width", chart_width)
+				.attr("height", height)
+				.on("mouseover",function(d,i){
+					var ele = this.id;
+					infoHide();
+					showTooltip(ele,d,"background")
+				})
+				.on("mouseout",function(d,i){ removeTooltip(); })
+				.on("click", up);
+
+			svg1.append("g")
+				.attr("class", "x axis")
+				.attr("id", "xAxis");
+				
+	
+			//gridlines
+		    /* var */ x_axis_grid = function() { return xAxis; }	
+			
+			svg1.append('g')
+				.attr('class', 'x grid')
+				.attr('id', 'xgrid')
+				.style('pointer-events', 'none')
+				.call(x_axis_grid()
+					.tickSize(-height, 0, 0)					
+				);
+				
+				
+				
+
+			d3.select('#svg2')
+				.attr("width",  header2.width() )
+				.attr("height", header2.height() )
+				.attr("transform", "translate(" + (header2/2) + "," + 0 + ")")/*
+				.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")")*/;
+
+			// svg text labels ... 
+			d3.select("#nameInfo").attr("x" , header2.width()/2-15);
+			d3.select("#valueInfo").attr("x" , header2.width()/2+15);
+			
+			
+	
+				
+
+
+			if ( move == "onload" ) {	
+			
+				d3.json("readme.json", function(error, root) {
+				
+					if (error) throw error;	
+
+					getDepth = function (obj) {
+						var depth = 0;
+						if (obj.children) {
+							obj.children.forEach(function (d) {
+								var tmpDepth = getDepth(d)
+
+								if (tmpDepth > depth) {
+									depth = tmpDepth
+								}
+							})
+						}
+						return 1 + depth
+					}
+					
+					maxDepth = getDepth(root) - 1;
+					
+					partition.nodes(root);
+					x.domain([0, root.value]).nice();
+
+					d3.select("#nameInfo").text("Level " + (root.depth+1) + " of " + maxDepth);
+			
+					down(root, 0);
+				});			
+			}			
+			else {				
+				partition.nodes(this_D);
+				x.domain([0, this_D.value]).nice();		
+
+				d3.select("#nameInfo").text("Level " + (this_D.depth+1) + " of " + maxDepth);
+		
+				down(this_D, this_I);
+				
+			}// end else ...
+			
+			
+			
+			
+			
+			
+			/*
+				name: function down(d, i)
+			*/
+			function down(d, i) {
+			
+				this_D = d;
+				this_I = i;
+				
+				if ( d.children ) {
+							
+					var newHeight = (d.children.length*barHeight*1.2)+margin.top+15;
+					
+					if ( newHeight < minHeight ) { newHeight = minHeight; }
+					else {  newHeight = newHeight; }	
+					
+					d3.select("#svg1").attr("height", newHeight)
+					d3.select("#xgrid").call(x_axis_grid().tickSize(-newHeight, 0, 0));
+											
+					FDS.sortOption = "value";
+					d3.selectAll(".btn").attr("class" , "btn btn-primary-outline default")
+					d3.select("#value").attr("class" , "btn btn-primary-outline active")
+									
+					if (!d.children || this.__transition__) return;
+					var end = duration + d.children.length * delay;
+							
+					// Mark any currently-displayed bars as exiting.
+					var exit = svg1.selectAll(".enter").attr("class", "exit");
+								  
+					d3.select("#xgrid").remove();
+					
+					// Entering nodes immediately obscure the clicked-on bar, so hide it.
+					exit.selectAll("rect")
+						.filter(function(p) { return p === d; })
+						.style("fill-opacity", 1e-6);
+					  
+					// Enter the new bars for the clicked-on data.
+					// Per above, entering bars are immediately visible.
+					var enter = bar(d)
+						.attr("transform", stack(i))
+						.style("opacity", 1);
+
+					// Have the text fade-in, even though the bars are visible.
+					// Color the bars as parents; they will fade to children if appropriate.
+					enter.select("text").style("fill-opacity", 1e-6);
+					enter.select("rect").style("fill", color(true));
+
+					// Update the x-scale domain.
+					x.domain([0, d3.max(d.children, function(d) { return d.value; })]).nice();
+
+					// Update the x-axis.
+					svg1.selectAll(".x.axis").transition()
+						.duration(duration)
+						.call(xAxis);
+
+					// Transition entering bars to their new position.
+					var enterTransition = enter.transition()
+						.duration(duration)
+						.delay(function(d, i) { return i * delay; })
+						.attr("transform", function(d, i) { return "translate(0," + barHeight * i * 1.2 + ")"; });
+
+					// Transition entering text.
+					enterTransition.select("text").style("fill-opacity", 1);
+
+					// Transition entering rects to the new x-scale.
+					enterTransition.select("rect")
+						.attr("width", function(d) { return x(d.value); })
+						.style("fill", function(d) { return color(!!d.children); });
+
+					// Transition exiting bars to fade out.
+					var exitTransition = exit.transition()
+						.duration(duration)
+						.style("opacity", 1e-6)
+						.remove();
+
+					// Transition exiting bars to the new x-scale.
+					exitTransition.selectAll("rect").attr("width", function(d) { return x(d.value); });
+
+					// Rebind the current node to the background.
+					svg1.select(".background")
+						.datum(d)
+						.transition()
+						.duration(end);
+
+					d.index = i;
+					
+					return;
+					
+				}// end if ...
+				
+				else {
+				
+				}
+			
+		}	// end function down()
+			
+			
+			
+			
+			
+			
+			/*
+			name: function up(d)
+			*/
+			function up(d,i) {
+			
+				d3.select("#nameInfo").text("Level " + (d.parent.depth+1) + " of " + maxDepth);			
+			
+				var newHeight = (d.parent.children.length*barHeight*1.2)+margin.top+15;
+				
+				if ( newHeight < minHeight ) { newHeight = minHeight; }
+				else {  newHeight = newHeight; }	
+				
+				d3.select("#svg1").attr("height", newHeight)
+				d3.select("#xgrid").call(x_axis_grid().tickSize(-newHeight, 0, 0));	
+		
+				FDS.sortOption = "value";
+				d3.selectAll(".btn").attr("class" , "btn btn-primary-outline default")
+				d3.select("#value").attr("class" , "btn btn-primary-outline active")
+				
+				showTooltip("background", d , 'background');
+						
+				if (!d.parent || this.__transition__) return;
+				var end = duration + d.children.length * delay;
+
+				// Mark any currently-displayed bars as exiting.
+				var exit = svg1.selectAll(".enter").attr("class", "exit");
+
+				// Enter the new bars for the clicked-on data's parent.
+				var enter = bar(d.parent)
+					.attr("transform", function(d, i) { return "translate(0," + barHeight * i * 1.2 + ")"; })
+					.style("opacity", 1e-6);
+
+				// Color the bars as appropriate.
+				// Exiting nodes will obscure the parent bar, so hide it.
+				enter.select("rect")
+					.style("fill", function(d) { return color(!!d.children); })
+					.filter(function(p) { return p === d; })
+					.style("fill-opacity", 1e-6);
+
+				// Update the x-scale domain.
+				x.domain([0, d3.max(d.parent.children, function(d) { return d.value; })]).nice();
+
+				// Update the x-axis.
+				svg1.selectAll(".x.axis").transition()
+					.duration(duration)
+					.call(xAxis);
+
+				// Transition entering bars to fade in over the full duration.
+				var enterTransition = enter.transition()
+					.duration(end)
+					.style("opacity", 1);
+
+				// Transition entering rects to the new x-scale.
+				// When the entering parent rect is done, make it visible!
+				enterTransition.select("rect")
+					.attr("width", function(d) { return x(d.value); })
+					.each("end", function(p) { if (p === d) d3.select(this).style("fill-opacity", null); });
+
+				// Transition exiting bars to the parent's position.
+				var exitTransition = exit.selectAll("g").transition()
+					.duration(duration)
+					.delay(function(d, i) { return i * delay; })
+					.attr("transform", stack(d.index));
+
+				// Transition exiting text to fade out.
+				exitTransition.select("text")
+					.style("fill-opacity", 1e-6);
+
+				// Transition exiting rects to the new scale and fade to parent color.
+				exitTransition.select("rect")
+					.attr("width", function(d) { return x(d.value); })
+					.style("fill", color(true));
+
+				// Remove exiting nodes when the last child has finished transitioning.
+				exit.transition()
+					.duration(end)
+					.remove();
+
+				// Rebind the current parent to the background.
+				svg1.select(".background")
+					.datum(d.parent)
+					.transition()
+					.duration(end);
+								
+			}// end function up(d)
+
+			// Creates a set of bars for the given data node, at the specified index.
+			function bar(d) {
+			
+				var bar = svg1.insert("g", ".y.axis")
+					.attr("class", "enter")
+					.attr("transform", "translate(0,5)")
+					.selectAll("g")
+					.data(d.children)
+					.enter()
+					.append("g")
+						.attr("class", "groups")
+						.attr("id", function(d,i){ return "group" + i; })
+					.style("cursor", function(d) { return !d.children ? null : "pointer"; });
+
+				bar.append("text")
+					.attr("class", "yAxisLabels")
+					.attr("id", function(d,i){ return "yAxisLabel" + i; })
+					.attr("x", -6)
+					.attr("y", barHeight / 2)
+					.attr("dy", ".35em")
+					.style("text-anchor", "end")
+					.text(function(d) { return d.name; })
+					.on("mouseover" , function(d,i){
+							infoHide();
+							var ele = this;
+							d3.selectAll(".yAxisLabels").style("font-size","10px").style("font-weight","normal").style("fill", "#222222");
+							d3.select("#"+this.id).style("font-size","16px").attr("dy", ".35em").style("font-weight","bold").style("fill", "#bed630");
+							return;
+					})
+					.on("mouseout" , function(d,i){
+							var ele = this;
+												
+							if ( selectedBar == '' ) {
+								d3.select("#"+this.id).style("font-size","10px").style("font-weight","normal").style("fill", "#222222");
+							}
+							
+							if ( selectedBar != '' && d.name != selectedBar.name ) {
+								d3.select("#"+this.id).style("font-size","10px").style("font-weight","normal").style("fill", "#222222");
+								d3.select("#yAxisLabel"+selectedBar.id).style("font-size","16px").style("font-weight","bold").style("fill", "#bed630");								
+							}
+							
+							return;
+					})
+					.on("click", function(d,i){
+											
+						if( d.name == selectedBar.name ) {
+						
+							d3.select("#dataBar"+i)
+								.style("opacity" , .75)
+								.style("fill" , function(){
+									if (typeof d.children !== 'undefined') {																				
+										selectedBar = '';
+										return "#4682B4";
+									}
+									else {										
+										selectedBar = '';
+										return "#ccc";
+									}
+							})
+							return;
+						}
+						else {
+						
+							d3.selectAll(".dataBars")
+								.style("opacity" , .75)
+								.style("fill" , function(d,i){
+									if (typeof d.children !== 'undefined') { return "#4682B4"; }
+									else{ return "#ccc"; }
+							})
+							
+							d3.select("#dataBar"+i).style("opacity" , 0.95).style("fill" , "#bed630");
+							d3.select("#intBar"+i).style("opacity" , 0.00);
+							
+							selectedBar = d;
+							selectedBar.id = i;
+							return;
+						}
+					});
+
+				bar.append("rect")
+					.attr("class", function(d,i) { return "dataBars"; })
+					.attr("id", function(d,i) { return "dataBar"+i; })
+					.attr("width", function(d) { return x(d.value); })
+					.attr("height", barHeight);
+								  
+				bar.append("rect")
+					.attr("class", function(d,i) { return "intBars"; })
+					.attr("id", function(d,i) { return "intBar"+i; })
+					.attr("width", function(d) { return 0 + (x(x.domain()[1])) })
+					.attr("height", barHeight)
+					.style("fill", "#ccc")
+					.style("opacity", "0.0")
+					.on("mouseover", function(d,i){
+						infoHide();
+					
+						selectedBar = '';
+					
+						var  ele = this.id;
+						d3.select("#"+ele).style("opacity" , 0.33)
+						var dataBar = ele.replace("int","data")
+						d3.select("#"+dataBar).style("opacity" , 0.95).style("fill" , "#fdbb30")
+						showTooltip(ele, d , 'graphic1');
+					})
+					.on("mouseout", function(d,i){
+						var  ele = this.id;
+						d3.select("#"+ele).style("opacity" , 0.0)
+						var dataBar = ele.replace("int","data")
+
+						d3.select("#"+dataBar)
+						.style("opacity" , .75)
+						.style("fill" , function(){
+							if (typeof d.children !== 'undefined') { return "#4682B4"; }
+							else{ return "#ccc"; }
+						})
+						
+						removeTooltip();
+					})
+					.on("click", function(d,i){
+					
+						if ( d.children ) {
+						
+							d3.select("#nameInfo").text("Level " + (d.depth+1) + " of " + maxDepth);
+													
+							this_D = d;
+							this_I = i;
+						
+							down(d,i);
+							
+						}
+						
+						else {
+							d3.select("#nameInfo").text("Level " + (d.depth) + " of " + maxDepth + " - No further childen");
+						}
+					});
+
+				return bar;
+			  
+			}// end function bar(d)
+
+			// A stateful closure for stacking bars horizontally.
+			function stack(i) {
+				var x0 = 0;
+				return function(d) {
+					var tx = "translate(" + x0 + "," + barHeight * i * 1.2 + ")";
+					x0 += x(d.value);
+					return tx;
+				};
+			}
+
+
+			//create svg for chart
+			svg2 = d3.select('#header2')
+				.append('svg')
+				.attr("id", 'svg2')
+				.attr("width",  header2.width())
+				.attr("height", header.height()/2)
+				.attr("transform", "translate(" + (header2.width()/2) + "," + 0 + ")")/*
+				.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")")*/;
+						
+			// svg text labels ... 
+			svg2.append("text")
+				.attr("class" , "info")
+				.attr("id" , "nameInfo")
+				.attr("x" , header2.width()/2-15)
+				.attr("y" , header2.height()/2)
+				.style("text-anchor" , "middle")
+				.style("stroke", "none")
+				.style("fill", "#0d78a7")
+				.style("font-weight", "bold")
+				.style("font-size", "14px")
+				.text("");
+				
+				/*
+			svg2.append("text")
+				.attr("class" , "info")
+				.attr("id" , "valueInfo")
+				.attr("x" , header2.width()/2+15)
+				.attr("y" , header2.height()/2)					
+				.style("text-anchor" , "start")
+				.style("stroke", "none")
+				.style("fill", "#0d78a7")
+				.style("font-weight", "bold")
+				.style("font-size", "14px")
+				.text("");			
+			*/
+					
+			//use pym to calculate chart dimensions	
+		    if (pymChild) {
+		        pymChild.sendHeight();
+		    }
+		}
+
+		//check whether browser can cope with svg	
+		if (Modernizr.svg) {
+		
+		   //load config 
+			d3.json("config.json", function(error, config) {
+			
+				FDS = config;
+
+				//use pym to create iframed chart dependent on specified variables
+				pymChild = new pym.Child({ renderCallback: drawGraphic});					
+			})
+
+		} else {
+			 //use pym to create iframe containing fallback image (which is set as default)
+			 pymChild = new pym.Child();
+			if (pymChild) {
+		        pymChild.sendHeight();
+		    }
+		}
+		
+		
+  
+
+		
+		
+		
+		
+		/*
+			NAME: 			showTooltip
+			DESCRIPTION: 	function used to display D3 style tooltip. Show the tooltip on the hovered over circle instead of the Voronoi grid
+			CALLED FROM:	transitionData
+							drawGraphic
+			CALLS:			n/a	
+			REQUIRES: 		d - data item 
+							fid - ID of selected dotsrc - where has function been called from/what kind of voronoi layer is being moused over (FULL or TEMP)
+			RETURNS: 		n/a
+		*/
+		function showTooltip(fid , d , src) {
+	
+			var element;	
+			element = d3.select("#" + fid);
+			
+			if( src == "background" && d.name == "results" ) {
+				return;
+			}			
+			else if( src == "background" && d.name != "results" ) {
+				childStr = "<b style='color:white'>Click to return up one level</b>";
+			}
+			else {
+				//Save the circle element (so not the voronoi which is triggering the hover event)
+				//in a variable by using the unique class of the voronoi (CountryCode)
+				var element;		
+				element = d3.select("#" + fid);
+				
+				var childStr = "\n";
+				
+				if (typeof d.children !== 'undefined') {			
+					for(var i=0; i<d.children.length; i++) {
+						childStr = childStr + "</br><b>" + d.children[i].name + " - </b>" + formatNumber(d.children[i].value);
+					}
+					
+					childStr = "<span style='font-size: 14px; text-align: center;'>Total Statistics for: <b>" + d.name + "</b></br></br><b>Total value:</b> " + formatNumber(d.value) + " </br><b>Children:</b> " + (d.children.length) + "</br>" + childStr;
+				}
+				else {
+					childStr = "<span style='font-size: 14px; text-align: center;'>Total Statistics for: <b>" + d.name + "</b></br></br><b>Total value:</b> " + formatNumber(d.value) + " </br><b>Children:</b> No children. </br>";
+				}
+			
+			} // end else ... 
+			
+			//Show the tooltip over the "element" variable (the circle) instead of "this"
+			$(element).popover({
+					placement: 'auto top',
+					container: 'body',
+					id:"toolTip",
+					trigger: 'manual',
+					html : true,
+					content: function() {
+						//return "<span style='font-size: 14px; text-align: center;'>Total Statistics for: <b>" + d.name + "</b></br></br><b>Total value:</b> " + formatNumber(d.value) + childStr + "</span>";
+						return childStr;
+					}
+			});
+			$(element).popover('show');
+
+			return;
+			
+		}//end function showTooltip 		
+		
+		
+		/*
+			NAME: 			removeTooltip
+			DESCRIPTION: 	function used to hide D3 style tooltip. Hide the tooltip when the mouse moves away
+			CALLED FROM:	transitionData
+							drawGraphic
+			CALLS:			n/a	
+			REQUIRES: 		n/a
+			RETURNS: 		n/a
+		*/
+		function removeTooltip() {			
+			$('.popover').each(function() { $(this).remove(); });
+			return;
+
+		}//end function removeTooltip 
+		
+			
+				
+		function formatNumber (num) {
+			return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,")
+		}	
+		
+		
+		function sortData(){
+		
+			var group_data = svg1.selectAll(".groups")/* .data() */;
+						
+			group_data.sort(FDS.sortOption == 'value'
+					? function(a, b) { return b.value - a.value; }
+					: function(a, b) { return d3.ascending(a.name, b.name); });
+								
+			d3.selectAll(".groups")
+				.transition()
+				.delay(function(d, i) { return i * 50; })
+				.duration(1000)
+				.attr("transform", function(d, i) { return "translate(0," + barHeight * i * 1.2 + ")"; });
+	
+			return;
+			
+		}// end function transitionData()	
+		
+		
+		
+		function compareNumbers(a, b) {
+			return a.name - b.name;
+		} 
+
+
+		function clickBtn(fid){
+			
+			if ( fid.id == 'clear' ) {
+			
+				d3.selectAll(".yAxisLabels").style("font-size","10px").style("font-weight","normal").style("fill", "#222222");
+				d3.selectAll(".dataBars")
+					.style("fill" , function(d,i){
+						if (typeof d.children !== 'undefined') { return "#4682B4"; }
+						else{ return "#ccc"; }
+					})
+					.style("opacity","0.75");
+			}			
+			else if ( fid.id == 'help' ) {
+				
+				var help_state = d3.select("#help").attr("class")
+				
+				if ( help_state.indexOf("active") != -1 ) {
+					d3.select("#help").attr("class" , "btn btn-primary-outline default")
+					$("#infoBox").hide(400);
+				}
+				else {
+					d3.select("#help").attr("class" , "btn btn-primary-outline active")
+					$("#infoBox").show(400);
+				}
+			}
+			else {			
+				FDS.sortOption = fid.id;
+				
+				d3.selectAll(".btn").attr("class" , "btn btn-primary-outline default")
+				d3.select("#" + fid.id).attr("class" , "btn btn-primary-outline active")
+				
+				sortData();
+			}
+			
+			return;
+		
+		}// end function function clickBtn()
+
+		
+		function infoHide(){
+		
+			d3.select("#help").attr("class" , "btn btn-primary-outline default")
+			$("#infoBox").hide(400);
+		}
+		
+		
+		
+		
+
+		
+    </script>
+</body>
+</html>
